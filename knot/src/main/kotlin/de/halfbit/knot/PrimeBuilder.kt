@@ -92,9 +92,9 @@ internal constructor() {
         /**
          * A functions emitting a [Change] when the [State] turns into a state of given type.
          *
-         * This function is used when `State` is modeled using State Machine design pattern. It
-         * gets called one, right after the state of given type has been entered. If a `Prime`
-         * is responsible for state initialization, this is the initial trigger to launch such
+         * This function is used when `State` follows State Machine design pattern. It's called
+         * just once, right after the state of given type has been entered. If a `Prime` is
+         * responsible for state initialization, this is the initial trigger to launch such
          * initialization.
          *
          * *Experimental, can be changed in next version*

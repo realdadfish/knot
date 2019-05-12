@@ -27,10 +27,11 @@ internal constructor() {
     private val stateInterceptors = mutableListOf<Interceptor<State>>()
     private val changeInterceptors = mutableListOf<Interceptor<Change>>()
     private val actionInterceptors = mutableListOf<Interceptor<Action>>()
+    private val stateTriggers = mutableListOf<StateTrigger<State, Change>>()
 
     /** A section for [State] and [Change] related declarations. */
-    fun state(block: StateBuilder<State>.() -> Unit) {
-        StateBuilder(stateInterceptors)
+    fun state(block: StateBuilder<State, Change>.() -> Unit) {
+        StateBuilder(stateInterceptors, stateTriggers)
             .also {
                 block(it)
                 initialState = it.initial
@@ -77,8 +78,54 @@ internal constructor() {
         actionTransformers = actionTransformers,
         stateInterceptors = stateInterceptors,
         changeInterceptors = changeInterceptors,
-        actionInterceptors = actionInterceptors
+        actionInterceptors = actionInterceptors,
+        stateTriggers = stateTriggers
     )
+
+    @KnotDsl
+    class StateBuilder<State : Any, Change : Any>
+    internal constructor(
+        private val stateInterceptors: MutableList<Interceptor<State>>,
+        private val stateTriggers: MutableList<StateTrigger<State, Change>>
+    ) {
+        /** Mandatory initial [State] of the [Knot]. */
+        var initial: State? = null
+
+        /** An optional [Scheduler] used for dispatching state changes. */
+        var observeOn: Scheduler? = null
+
+        /** A function for intercepting [State] mutations. */
+        fun intercept(interceptor: Interceptor<State>) {
+            stateInterceptors += interceptor
+        }
+
+        /** A function for watching mutations of any [State]. */
+        fun watchAll(watcher: Watcher<State>) {
+            stateInterceptors += WatchingInterceptor(watcher)
+        }
+
+        /** A function for watching mutations of all `States`. */
+        inline fun <reified T : State> watch(noinline watcher: Watcher<T>) {
+            watchAll(TypedWatcher(T::class.java, watcher))
+        }
+
+        @PublishedApi
+        internal fun onState(stateTrigger: StateTrigger<State, Change>) {
+            stateTriggers += stateTrigger
+        }
+
+        /**
+         * A functions emitting a [Change] when the [State] turns into a state of given type.
+         *
+         * This function is used when `State` follows State Machine design pattern. It's called
+         * just once, right after the state of given type has been entered.
+         *
+         * *Experimental, can be changed in next version*
+         */
+        inline fun <reified S : State> onEnter(noinline stateTrigger: StateTrigger<State, Change>) {
+            onState(OnEnterStateTrigger(S::class.java, stateTrigger))
+        }
+    }
 
     @KnotDsl
     class ChangesBuilder<State : Any, Change : Any, Action : Any>
@@ -137,33 +184,6 @@ internal constructor() {
 
         /** Throws [IllegalStateException] with current [State] and given [Change] in its message. */
         fun State.unexpected(change: Change): Nothing = error("Unexpected $change in $this")
-    }
-}
-
-@KnotDsl
-class StateBuilder<State : Any>
-internal constructor(
-    private val stateInterceptors: MutableList<Interceptor<State>>
-) {
-    /** Mandatory initial [State] of the [Knot]. */
-    var initial: State? = null
-
-    /** An optional [Scheduler] used for dispatching state changes. */
-    var observeOn: Scheduler? = null
-
-    /** A function for intercepting [State] mutations. */
-    fun intercept(interceptor: Interceptor<State>) {
-        stateInterceptors += interceptor
-    }
-
-    /** A function for watching mutations of any [State]. */
-    fun watchAll(watcher: Watcher<State>) {
-        stateInterceptors += WatchingInterceptor(watcher)
-    }
-
-    /** A function for watching mutations of all `States`. */
-    inline fun <reified T : State> watch(noinline watcher: Watcher<T>) {
-        watchAll(TypedWatcher(T::class.java, watcher))
     }
 }
 

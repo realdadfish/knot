@@ -22,7 +22,7 @@ internal constructor() {
 
     /** A section for [State] related declarations. */
     fun state(block: StateBuilder<State>.() -> Unit) {
-        StateBuilder(stateInterceptors)
+        StateBuilder<State>()
             .also {
                 block(it)
                 initialState = it.initial
@@ -52,6 +52,17 @@ internal constructor() {
         changeInterceptors = changeInterceptors,
         actionInterceptors = actionInterceptors
     )
+
+    @KnotDsl
+    class StateBuilder<State : Any>
+    internal constructor() {
+
+        /** Mandatory initial [State] of the [Knot]. */
+        var initial: State? = null
+
+        /** An optional [Scheduler] used for dispatching state changes. */
+        var observeOn: Scheduler? = null
+    }
 
     @KnotDsl
     class ChangesBuilder<Change : Any>

@@ -104,7 +104,8 @@ internal class DefaultKnot<State : Any, Change : Any, Action : Any>(
     actionTransformers: List<ActionTransformer<Action, Change>>,
     stateInterceptors: List<Interceptor<State>>,
     changeInterceptors: List<Interceptor<Change>>,
-    actionInterceptors: List<Interceptor<Action>>
+    actionInterceptors: List<Interceptor<Action>>,
+    stateTriggers: List<StateTrigger<State, Change>>
 ) : Knot<State, Change, Action> {
 
     private val changeSubject = PublishSubject.create<Change>()
@@ -134,8 +135,12 @@ internal class DefaultKnot<State : Any, Change : Any, Action : Any>(
         .let { state -> observeOn?.let { state.observeOn(it) } ?: state }
         .intercept(stateInterceptors)
         .replay(1)
-        .also { disposable.add(it.connect()) }
-
+        .also { state ->
+            stateTriggers.map { trigger ->
+                trigger(state).subscribe(changeSubject)
+            }
+            disposable.add(state.connect())
+        }
 }
 
 internal fun <T> Observable<T>.intercept(interceptors: List<Interceptor<T>>): Observable<T> =
